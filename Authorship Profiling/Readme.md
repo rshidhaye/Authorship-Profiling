@@ -34,7 +34,7 @@ Only 1 output file pred_labels.csv containing 500 author IDs and their predicted
 
 ### Running the tests:
 
-1.	After opening the jupyter notebook ‘Group3_ass2.ipynb’ one can run the code by clicking on ‘Kernel’ and selecting ‘Restart and run all’.
+1.	After opening the jupyter notebook ‘Authorship_profiling.ipynb’ one can run the code by clicking on ‘Kernel’ and selecting ‘Restart and run all’.
 2.	The code will read the input file train_labels.csv and extract ids and then extract the file corresponding to each ID from the ‘data’ folder. Similarly, for the IDs present in the test.csv.
 3.	In order to ensure reproducibility of results, np.random.seed() is set.
 4.	In the end, the accuracy of the model on 100% test data can be seen and the predicted gender labels for each author ID are saved to a csv file with appropriate headers.
