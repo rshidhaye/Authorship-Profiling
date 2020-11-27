@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <script src="https://d3js.org/d3.v4.min.js"></script>                                                  
+      <title> D3 Interactive Network Visualization </title>
+  </head>
+  <body>
+    <script type="text/javascript">
+        
+    // Text editor: Brackets
+        
+    window.onload = function(){
+      var w = 1200;                                                                                         // Width of the window
+      var h = 800;                                                                                          // Height of the window
+      var svg = d3.select("body").append("svg").attr("width",w).attr("height", h);                          // Adding the svg element with the height and the width
+      var lines = svg.attr("class", "line")
+     
+      // Giving the title:
+      
+      svg.append("text")
+        .attr("x", (w / 2))             
+        .attr("y",  20)
+        .attr("text-anchor", "middle")  
+        .style("font-size", "20px")                                                                         // Setting the font size
+        .style("text-decoration", "underline")                                                              // Underlining the title
+        .text("D3 Interactive Network Visualization");
+         
+        
+      
+        d3.json("data.json", function(error, data) {                                                        // Reading the json data
+        console.log(data);                                                                                  // Displaying the data in the console
+         
+
+        
+        // Scaling the width of the line based on the minimum and maximum values of amount:
+        
+        var scaling = d3.scaleLinear()
+                        .domain([d3.min(data.links,d => d.amount),d3.max(data.links,d => d.amount)])
+                        .range([0,10])
+
+
+            
+        // Calculating total amount at each site based on links data:
+        // Using the nest() with rollup() for grouping and calculating total amount:
+            
+        const totalAmount1 = d3.nest().key(function(d) { return d.node02  })
+                                  .rollup(function(v) { return d3.sum(v, function(d) { return d.amount; }); })    // Calculating the total for node2
+                                  .object(data.links);
+            
+        const totalAmount2 = d3.nest().key(function(d) { return d.node01; })
+                                  .rollup(function(v) { return d3.sum(v, function(d) { return d.amount; }); })    // Calculating the total for node1
+                                  .object(data.links);
+    
+
+        // Summing the amounts at both nodes using concat() and storing in a variable:  
+           
+        var tot_amount =  Object.keys(totalAmount1).concat(Object.keys(totalAmount2))
+                                .reduce(function(obj, k) {
+                 obj[k] = (totalAmount1[k] || 0) + (totalAmount2[k] || 0);                                 // If the value for a key is not found, add 0
+                return obj;
+                }, {})
+
+            
+        // Calculate the number of locations at a node:
+          
+        var count_nodes1 = d3.nest().key(function(d) { return d.node02 || d.node01; })
+                                .rollup(function(v) { return v.length; })
+                                .object(data.links);
+ 
+            
+        var count_nodes2 = d3.nest().key(function(d) { return d.node01; })
+                                .rollup(function(v) { return v.length; })
+                                .object(data.links);
+             
+        // Summing the counts at both nodes using concat() and storing in a variable:  
+            
+        var tot_count =  Object.keys(count_nodes1).concat(Object.keys(count_nodes2))
+                               .reduce(function(obj, k) {
+                 obj[k] = (count_nodes1[k] || 0) + (count_nodes2[k] || 0);                                 // If the value for a key is not found, add 0
+                return obj;
+                }, {})
+
+          
+      // Defining a scale for radius of the node:
+      // Square root scale(based on the area of the circle) is used instead of linear to avoid very high radius for nodes:
+        
+      var myScale = d3.scaleSqrt()
+                      .domain([0, 3000])
+                      .range([0, 50]);
+        
+      // Defining a function for radius of the node with scaling:
+            
+      function radius_scale(d, i){   
+            for (key in  tot_amount)
+                // Checking the key with the id of nodes:
+                if (key == d.id)
+                    return myScale(tot_amount[key])
+                }
+            
+      // Defining a function for amount at the node:
+            
+      function radius(d, i){   
+            for (key in  tot_amount)
+                // Checking the key with the id of nodes:
+                if (key == d.id)
+                    return (tot_amount[key])
+                }
+            
+       // Defining a function for counting the number of locations connected at a node:
+            
+       function count_nodes(d, i){   
+            for (key in  tot_count)
+                // Checking the key with the id of nodes:
+                if (key == d.id)
+                    return (tot_count[key])
+                }
+  
+        // Configuring the links before nodes so that the nodes appear(render) on top of lines:
+        
+        // Note that there is a connection between site06 and site08. However it is not visible as it is below the connection of
+        // site04 and site06
+
+        var links = svg.selectAll(".link")
+                       .data(data.links)                                                                   // Specify the data to be taken (links data)
+                       .enter()
+                       .append("line")                                                                     // The element is line
+                       .attr("class", "link")
+                       .attr("x1", function(l) {                                                           
+                         var sourceNode = data.nodes.filter(function(d) {
+                           return d.id == l.node01
+                         })[0];
+                         d3.select(this).attr("y1", sourceNode.y);                                         // Take the y1 co-ordinate from y of the node
+                         return sourceNode.x                                                               // Take the x1 co-ordinate from x of the node
+                       })
+                       .attr("x2", function(l) {
+                         var targetNode = data.nodes.filter(function(d) {
+                           return d.id == l.node02
+                         })[0];
+                         d3.select(this).attr("y2", targetNode.y);                                         // Take the y2 co-ordinate from y of the node
+                         return targetNode.x                                                               // Take the x2 co-ordinate from x of the node
+                       })
+                       .attr("stroke-width", function(l){return scaling(l.amount);                         // Scale the amount for line width
+
+                       })
+                       .attr("stroke", "black");                                                           // Colour of the line
+
+         var nodes = svg.selectAll(".node")
+                       .data(data.nodes)                                                                   // Specify the data to be taken (nodes data)
+                       .enter()
+                       .append("circle")                                                                   // The element is a circle for a node
+                       .attr("class", "node")
+                       .attr("cx", function(d) {
+                           return d.x                                                                      // The x co-ordinate of the node
+                       })
+                       .attr("cy", function(d) {
+                           return d.y                                                                      // The y co-ordinate of the node
+                       })
+                       .attr("r", radius_scale)                                                            // Calling the radius_scale function for the radius
+                       .attr("fill", "blue")                                                               // Colour of the node
+                       .on('mouseover', function(d,i) {                                                    // Functions to perform while hovering over the node
+
+                            d3.selectAll("circle").style("opacity",0.1)                                    // Decrease the opacity of all circles
+                            d3.select(this).style("opacity",1);                                            // Make the opacity of the hovered node maximum
+
+                            links.style('stroke-opacity', function(l) {
+                                if (d.id === l.node01 || d.id === l.node02)                                // Select the links of the neighbouring nodes
+                                    return 1;                                                              // Highlight them
+                                else 
+                                    return 0.1;                                                            // Make others transparent but not fully
+                                });
+                            })
+                       .on('mouseout', function(d,i) {                                                     // Setting everything back after hovering
+                            d3.selectAll("circle").style("opacity",1);
+                            links.style('stroke-opacity', 0.8);
+                                })
+                       .append("title") // For hover effect
+                       .text(function(d) { 
+                           
+                           // Display information while hovering:
+                           
+                           return "Total connected locations: " + count_nodes(d) + 
+                               " at " + d.id  + " and Total trading amount: " + radius(d); 
+
+           });
+
+      });
+    }
+    </script>                                                                                             
+  </body>
+</html>
+
+
